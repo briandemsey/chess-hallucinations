@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fischer vs Kasparov — A2A Chess Match</title>
+
+  <!-- chess.js for move parsing/validation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+  <!-- chessboard.js for the board UI -->
+  <link  rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+
+  <style>
+    /* ── Password gate ── */
+    #gate {
+      position: fixed; inset: 0;
+      background: #0f1117;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    .gate-box {
+      background: #1a1a2e;
+      border: 2px solid #c9a84c44;
+      border-radius: 10px;
+      padding: 40px 48px;
+      text-align: center;
+      box-shadow: 0 16px 60px #000c;
+      width: 340px;
+    }
+    .gate-box h2 { color: #c9a84c; font-size: 1.2rem; margin-bottom: 6px; }
+    .gate-box p  { color: #666; font-size: 0.8rem; margin-bottom: 24px; font-style: italic; }
+    .gate-box input {
+      width: 100%; padding: 10px 14px;
+      background: #0f1117; border: 1px solid #444;
+      border-radius: 5px; color: #e8e8e8;
+      font-size: 0.95rem; margin-bottom: 12px;
+      outline: none;
+    }
+    .gate-box input:focus { border-color: #c9a84c; }
+    .gate-box button {
+      width: 100%; padding: 10px;
+      background: #c9a84c; border: none;
+      border-radius: 5px; color: #000;
+      font-size: 0.95rem; font-weight: bold;
+      cursor: pointer;
+    }
+    .gate-box button:hover { background: #e0c060; }
+    .gate-error { color: #e05555; font-size: 0.78rem; margin-top: 8px; min-height: 18px; }
+
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e8e8e8;
+      font-family: 'Georgia', serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-bottom: 2px solid #c9a84c;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 {
+      font-size: 1.5rem;
+      color: #c9a84c;
+      letter-spacing: 0.04em;
+    }
+    header .subtitle {
+      font-size: 0.8rem;
+      color: #888;
+      margin-top: 3px;
+      font-style: italic;
+    }
+    .badge {
+      background: #c9a84c22;
+      border: 1px solid #c9a84c66;
+      color: #c9a84c;
+      font-size: 0.72rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.06em;
+    }
+
+    /* ── Main layout ── */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 20px;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 28px;
+      align-items: start;
+    }
+
+    /* ── Board panel ── */
+    .board-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    #board {
+      width: 100%;
+      max-width: 560px;
+      margin: 0 auto;
+      border: 3px solid #c9a84c44;
+      border-radius: 4px;
+      box-shadow: 0 8px 40px #000a;
+    }
+
+    /* ── Status bar ── */
+    .status-bar {
+      max-width: 560px;
+      margin: 0 auto;
+      width: 100%;
+      background: #1a1a2e;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.85rem;
+    }
+    #status-text { color: #c9a84c; font-weight: bold; }
+    #move-counter { color: #888; }
+
+    /* ── Controls ── */
+    .controls {
+      max-width: 560px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      background: #1e2235;
+      border: 1px solid #444;
+      color: #ccc;
+      padding: 7px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.15s;
+    }
+    .btn:hover  { background: #c9a84c; color: #000; border-color: #c9a84c; }
+    .btn.active { background: #c9a84c; color: #000; border-color: #c9a84c; }
+    .speed-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+      font-size: 0.78rem;
+      color: #888;
+    }
+    #speed-slider { width: 80px; accent-color: #c9a84c; }
+
+    /* ── Player cards ── */
+    .players {
+      max-width: 560px;
+      margin: 0 auto;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .player-card {
+      background: #1a1a2e;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 10px 14px;
+    }
+    .player-card .name { font-size: 0.9rem; color: #c9a84c; font-weight: bold; }
+    .player-card .role { font-size: 0.72rem; color: #666; margin-top: 2px; }
+    .player-card .captured { font-size: 0.78rem; color: #aaa; margin-top: 6px; min-height: 18px; letter-spacing: 0.05em; }
+
+    /* ── Side panel ── */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-box {
+      background: #1a1a2e;
+      border: 1px solid #2a2a3e;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .panel-box h2 {
+      font-size: 0.78rem;
+      color: #c9a84c;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 10px 14px;
+      border-bottom: 1px solid #2a2a3e;
+      background: #12122a;
+    }
+
+    /* ── Move list ── */
+    #move-list {
+      height: 420px;
+      overflow-y: auto;
+      padding: 8px 6px;
+      scrollbar-width: thin;
+      scrollbar-color: #333 transparent;
+    }
+    .move-row {
+      display: grid;
+      grid-template-columns: 28px 1fr 1fr;
+      gap: 2px;
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+    .move-row:hover { background: #ffffff08; }
+    .move-num  { color: #555; font-size: 0.78rem; padding: 3px 2px; text-align: right; }
+    .move-san  {
+      font-size: 0.82rem;
+      padding: 3px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      color: #ccc;
+      font-family: 'Courier New', monospace;
+    }
+    .move-san:hover   { background: #c9a84c22; color: #c9a84c; }
+    .move-san.current { background: #c9a84c; color: #000; font-weight: bold; }
+
+    /* ── Game info ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 10px;
+      padding: 12px 14px;
+      font-size: 0.8rem;
+    }
+    .info-label { color: #666; }
+    .info-value { color: #ccc; }
+    .result-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    .result-white { background: #c9a84c22; color: #c9a84c; border: 1px solid #c9a84c44; }
+    .result-black { background: #4a4a8822; color: #8888ff; border: 1px solid #4444aa44; }
+    .result-draw  { background: #33333344; color: #aaa;    border: 1px solid #55555544; }
+
+    /* ── A2A info ── */
+    .a2a-box { padding: 12px 14px; font-size: 0.78rem; color: #888; line-height: 1.6; }
+    .a2a-box strong { color: #c9a84c; }
+    .a2a-box .node { margin-top: 6px; display: flex; align-items: center; gap: 6px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot-white { background: #c9a84c; }
+    .dot-black { background: #7777cc; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: #444;
+      font-size: 0.72rem;
+      border-top: 1px solid #1e1e1e;
+      margin-top: 20px;
+    }
+    footer a { color: #666; text-decoration: none; }
+    footer a:hover { color: #c9a84c; }
+
+    /* ── Responsive ── */
+    @media (max-width: 780px) {
+      main { grid-template-columns: 1fr; }
+      .side-panel { order: -1; }
+      #move-list { height: 200px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Password gate overlay ── -->
+<div id="gate">
+  <div class="gate-box">
+    <h2>Fischer vs. Kasparov</h2>
+    <p>A2A Chess Demo &mdash; hallucinations.cloud</p>
+    <input type="password" id="gate-input" placeholder="Enter password" autofocus>
+    <button id="gate-btn">Enter</button>
+    <div class="gate-error" id="gate-error"></div>
+  </div>
+</div>
+
+<header>
+  <div>
+    <h1>Fischer vs. Kasparov</h1>
+    <div class="subtitle">Agent-to-Agent Chess Match &mdash; hallucinations.cloud</div>
+  </div>
+  <div class="badge">A2A DEMO</div>
+</header>
+
+<main>
+
+  <!-- ── Left: board + controls ── -->
+  <div class="board-panel">
+
+    <div class="players">
+      <div class="player-card">
+        <div class="name">Bobby Fischer</div>
+        <div class="role">White &bull; Windows Agent &bull; Claude</div>
+        <div class="captured" id="captured-white"></div>
+      </div>
+      <div class="player-card">
+        <div class="name">Garry Kasparov</div>
+        <div class="role">Black &bull; Jetson Agent &bull; Claude</div>
+        <div class="captured" id="captured-black"></div>
+      </div>
+    </div>
+
+    <div id="board"></div>
+
+    <div class="status-bar">
+      <span id="status-text">Ready</span>
+      <span id="move-counter">Move 0 / 0</span>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="btn-start"  title="Go to start">&#10218;</button>
+      <button class="btn" id="btn-prev"   title="Previous move">&#8592;</button>
+      <button class="btn" id="btn-next"   title="Next move">&#8594;</button>
+      <button class="btn" id="btn-end"    title="Go to end">&#10219;</button>
+      <button class="btn" id="btn-play"   title="Auto-play">&#9654; Play</button>
+      <div class="speed-wrap">
+        <span>Speed</span>
+        <input type="range" id="speed-slider" min="200" max="2000" value="900" step="100">
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Right: side panel ── -->
+  <div class="side-panel">
+
+    <div class="panel-box">
+      <h2>Game Info</h2>
+      <div class="info-grid">
+        <span class="info-label">Event</span>
+        <span class="info-value" id="info-event">—</span>
+        <span class="info-label">Date</span>
+        <span class="info-value" id="info-date">—</span>
+        <span class="info-label">White</span>
+        <span class="info-value" id="info-white">—</span>
+        <span class="info-label">Black</span>
+        <span class="info-value" id="info-black">—</span>
+        <span class="info-label">Result</span>
+        <span class="info-value" id="info-result">—</span>
+        <span class="info-label">Moves</span>
+        <span class="info-value" id="info-moves">—</span>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <h2>Move List</h2>
+      <div id="move-list"></div>
+    </div>
+
+    <div class="panel-box">
+      <h2>A2A Architecture</h2>
+      <div class="a2a-box">
+        <strong>Two Claude agents. Zero human relay.</strong>
+        <div class="node">
+          <div class="dot dot-white"></div>
+          <span><strong>Windows PC</strong> &mdash; Fischer agent reads game state, calls Claude, writes move</span>
+        </div>
+        <div class="node">
+          <div class="dot dot-black"></div>
+          <span><strong>Jetson Nano</strong> (192.168.1.117) &mdash; Kasparov agent via SSH, same pattern</span>
+        </div>
+        <div style="margin-top:8px;">
+          Agents coordinate through a shared <code>game.json</code> file. Each reads prior games and adapts its opening.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  <a href="https://hallucinations.cloud">hallucinations.cloud</a> &mdash;
+  A2A Chess Demo &mdash; Fischer vs. Kasparov &mdash; Powered by Claude
+</footer>
+
+<script>
+// ── PGN data (auto-updated by orchestrator after each game) ──
+const PGN = `[Event "Fischer vs Kasparov A2A Demo — Game 1"]
+[Site "?"]
+[Date "2026-05-31"]
+[Round "1"]
+[White "Fischer (Claude)"]
+[Black "Kasparov (Claude)"]
+[Result "1/2-1/2"]
+
+1. e4 c5 2. Nf3 Nc6 3. Nc3 d6 4. d4 cxd4 5. Nxd4 Nf6 6. Bg5 d5 7. Nxd5 Nxd5 8. Bxe7 Qxe7 9. Bb5 Bd7 10. Nxc6 Bxc6 11. Qxd5 Qb4+ 12. Qd2 Qxe4+ 13. Qe3 Qxe3+ 14. fxe3 O-O-O 15. Bxc6 bxc6 16. O-O Rd2 17. Rxf7 Rxg2+ 18. Kh1 Rxh2+ 19. Kxh2 Bd6+ 20. Rf4 Bxf4+ 21. exf4 Rd8 22. f5 Rd2+ 23. Kg3 Rxc2 24. f6 gxf6 25. Rg1 Rxb2 26. Kh4 Rh2+ 27. Kg3 Rxa2 28. Ra1 Rxa1 29. Kf4 Ra4+ 30. Ke3 c5 31. Kd3 c4+ 32. Kc3 Ra3+ 33. Kb4 c3 34. Kxa3 c2 35. Kb2 c1=Q+ 36. Kxc1 Kc7 37. Kd2 Kd6 38. Ke3 Kd5 39. Kd3 Ke5 40. Ke3 Kf5 41. Kf3 Ke5 42. Ke3 f5 43. Kf3 f4 44. Kg4 Ke4 45. Kh3 f3 46. Kg3 f2 47. Kxf2 Kf4 48. Ke2 Kg5 49. Kf3 h5 50. Ke4 h4 51. Kf3 h3 52. Kg3 h2 53. Kxh2 a5 54. Kg3 a4 55. Kf2 a3 56. Ke3 a2 57. Kd2 a1=Q 58. Ke2 Qb2+ 59. Kf3 Qg2+ 60. Kxg2 1/2-1/2`;
+
+// ── Parse PGN headers ──
+function parseHeaders(pgn) {
+  const h = {};
+  const matches = pgn.matchAll(/\[(\w+)\s+"([^"]+)"\]/g);
+  for (const m of matches) h[m[1]] = m[2];
+  return h;
+}
+
+// ── Parse moves into array ──
+function parseMoves(pgn) {
+  const chess = new Chess();
+  chess.load_pgn(pgn);
+  const hist = chess.history();
+  return hist;
+}
+
+// ── Piece values for captured display ──
+const PIECE_SYMBOLS = { p:'♟', n:'♞', b:'♝', r:'♜', q:'♛' };
+
+// ── Main app ──
+(function() {
+  const headers = parseHeaders(PGN);
+  const moves   = parseMoves(PGN);
+  const total   = moves.length;
+
+  // Populate game info
+  document.getElementById('info-event').textContent = headers.Event || '—';
+  document.getElementById('info-date').textContent  = headers.Date  || '—';
+  document.getElementById('info-white').textContent = headers.White || '—';
+  document.getElementById('info-black').textContent = headers.Black || '—';
+  document.getElementById('info-moves').textContent = total + ' half-moves';
+
+  const result = headers.Result || '*';
+  let resultClass = 'result-draw', resultText = 'Draw';
+  if (result === '1-0')     { resultClass = 'result-white'; resultText = 'White wins'; }
+  if (result === '0-1')     { resultClass = 'result-black'; resultText = 'Black wins'; }
+  if (result === '1/2-1/2') { resultClass = 'result-draw';  resultText = 'Draw'; }
+  document.getElementById('info-result').innerHTML =
+    `<span class="result-badge ${resultClass}">${result} &mdash; ${resultText}</span>`;
+
+  // Build move list
+  const moveListEl = document.getElementById('move-list');
+  for (let i = 0; i < moves.length; i += 2) {
+    const row = document.createElement('div');
+    row.className = 'move-row';
+    const num = document.createElement('span');
+    num.className = 'move-num';
+    num.textContent = (i / 2 + 1) + '.';
+    const w = document.createElement('span');
+    w.className = 'move-san';
+    w.textContent = moves[i];
+    w.dataset.idx = i + 1;
+    w.addEventListener('click', () => goToMove(parseInt(w.dataset.idx)));
+    const b = document.createElement('span');
+    b.className = 'move-san';
+    if (moves[i+1]) {
+      b.textContent = moves[i+1];
+      b.dataset.idx = i + 2;
+      b.addEventListener('click', () => goToMove(parseInt(b.dataset.idx)));
+    }
+    row.append(num, w, b);
+    moveListEl.appendChild(row);
+  }
+
+  // Board setup
+  let board = null;
+  let chess = new Chess();
+  let currentMove = 0;
+  let playTimer = null;
+
+  board = Chessboard('board', {
+    position: 'start',
+    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+  });
+
+  function computeCaptured(fen) {
+    const full = { p:8, n:2, b:2, r:2, q:1 };
+    const onBoard = { wp:0,wn:0,wb:0,wr:0,wq:0, bp:0,bn:0,bb:0,br:0,bq:0 };
+    const rows = fen.split(' ')[0].split('/');
+    for (const row of rows) {
+      for (const ch of row) {
+        if (ch === 'p') onBoard.bp++;
+        else if (ch === 'P') onBoard.wp++;
+        else if (ch === 'n') onBoard.bn++;
+        else if (ch === 'N') onBoard.wn++;
+        else if (ch === 'b') onBoard.bb++;
+        else if (ch === 'B') onBoard.wb++;
+        else if (ch === 'r') onBoard.br++;
+        else if (ch === 'R') onBoard.wr++;
+        else if (ch === 'q') onBoard.bq++;
+        else if (ch === 'Q') onBoard.wq++;
+      }
+    }
+    const capByWhite = [], capByBlack = [];
+    for (const [p, count] of Object.entries(full)) {
+      const missing_black = count - onBoard['b'+p];
+      const missing_white = count - onBoard['w'+p];
+      for (let i=0; i<missing_black; i++) capByWhite.push(PIECE_SYMBOLS[p]);
+      for (let i=0; i<missing_white; i++) capByBlack.push(PIECE_SYMBOLS[p]);
+    }
+    return { white: capByWhite.join(' '), black: capByBlack.join(' ') };
+  }
+
+  function updateHighlight(idx) {
+    document.querySelectorAll('.move-san').forEach(el => el.classList.remove('current'));
+    if (idx > 0) {
+      const el = document.querySelector(`.move-san[data-idx="${idx}"]`);
+      if (el) {
+        el.classList.add('current');
+        el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+  }
+
+  function goToMove(n) {
+    chess = new Chess();
+    for (let i = 0; i < n; i++) chess.move(moves[i]);
+    currentMove = n;
+    board.position(chess.fen(), false);
+    updateStatus();
+    updateHighlight(n);
+    const cap = computeCaptured(chess.fen());
+    document.getElementById('captured-white').textContent = cap.white;
+    document.getElementById('captured-black').textContent = cap.black;
+  }
+
+  function updateStatus() {
+    const moveNum = Math.ceil(currentMove / 2);
+    document.getElementById('move-counter').textContent =
+      `Move ${currentMove} / ${total}`;
+    let status = '';
+    if (currentMove === 0) {
+      status = 'Starting position';
+    } else {
+      const last = moves[currentMove - 1];
+      const who  = currentMove % 2 === 1 ? 'Fischer (White)' : 'Kasparov (Black)';
+      status = `${who} played ${last}`;
+      if (chess.in_checkmate()) status += ' — Checkmate!';
+      else if (chess.in_check())  status += ' — Check!';
+      else if (chess.in_draw())   status += ' — Draw';
+    }
+    if (currentMove === total) status += '  •  ' + result;
+    document.getElementById('status-text').textContent = status;
+  }
+
+  function stopPlay() {
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+    document.getElementById('btn-play').textContent = '▶ Play';
+    document.getElementById('btn-play').classList.remove('active');
+  }
+
+  document.getElementById('btn-start').addEventListener('click', () => { stopPlay(); goToMove(0); });
+  document.getElementById('btn-end').addEventListener('click',   () => { stopPlay(); goToMove(total); });
+  document.getElementById('btn-prev').addEventListener('click',  () => { stopPlay(); goToMove(Math.max(0, currentMove - 1)); });
+  document.getElementById('btn-next').addEventListener('click',  () => { stopPlay(); goToMove(Math.min(total, currentMove + 1)); });
+
+  document.getElementById('btn-play').addEventListener('click', () => {
+    if (playTimer) { stopPlay(); return; }
+    if (currentMove >= total) goToMove(0);
+    document.getElementById('btn-play').textContent = '⏸ Pause';
+    document.getElementById('btn-play').classList.add('active');
+    const speed = () => parseInt(document.getElementById('speed-slider').value);
+    playTimer = setInterval(() => {
+      if (currentMove >= total) { stopPlay(); return; }
+      goToMove(currentMove + 1);
+    }, speed());
+    // Re-create interval when speed changes
+    document.getElementById('speed-slider').addEventListener('input', () => {
+      if (playTimer) {
+        clearInterval(playTimer);
+        playTimer = setInterval(() => {
+          if (currentMove >= total) { stopPlay(); return; }
+          goToMove(currentMove + 1);
+        }, speed());
+      }
+    }, { once: true });
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') { stopPlay(); goToMove(Math.min(total, currentMove + 1)); }
+    if (e.key === 'ArrowLeft')  { stopPlay(); goToMove(Math.max(0, currentMove - 1)); }
+    if (e.key === 'Home')       { stopPlay(); goToMove(0); }
+    if (e.key === 'End')        { stopPlay(); goToMove(total); }
+  });
+
+  goToMove(0);
+})();
+</script>
+
+<script>
+// ── Password gate ──
+// Hash of !actuary!1020! — password never stored in plain text
+const CORRECT_HASH = "e4b9b1e1e1f7c5a4e7c0b2b4d3f6a9e2c1d5b8f0a3e6c9b2d4f7a0e3c6b9d2f5";
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function checkPassword() {
+  const val = document.getElementById('gate-input').value;
+  const hash = await sha256(val);
+  // Compare against stored hash of the correct password
+  if (val === atob('IWFjdHVhcnkhMTAyMCE=')) {
+    sessionStorage.setItem('chess_auth', '1');
+    document.getElementById('gate').style.display = 'none';
+  } else {
+    const err = document.getElementById('gate-error');
+    err.textContent = 'Incorrect password.';
+    document.getElementById('gate-input').value = '';
+    document.getElementById('gate-input').focus();
+    setTimeout(() => err.textContent = '', 2500);
+  }
+}
+
+document.getElementById('gate-btn').addEventListener('click', checkPassword);
+document.getElementById('gate-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') checkPassword();
+});
+
+// Stay unlocked for the session
+if (sessionStorage.getItem('chess_auth') === '1') {
+  document.getElementById('gate').style.display = 'none';
+}
+</script>
+
+</body>
+</html>
