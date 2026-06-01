@@ -337,8 +337,9 @@
       <button class="btn" id="btn-end"    title="Go to end">&#10219;</button>
       <button class="btn" id="btn-play"   title="Auto-play">&#9654; Play</button>
       <div class="speed-wrap">
-        <span>Speed</span>
-        <input type="range" id="speed-slider" min="200" max="2000" value="900" step="100">
+        <span>Slow</span>
+        <input type="range" id="speed-slider" min="200" max="5000" value="2000" step="100">
+        <span>Fast</span>
       </div>
     </div>
 
@@ -569,7 +570,9 @@ const PIECE_SYMBOLS = { p:'♟', n:'♞', b:'♝', r:'♜', q:'♛' };
     if (currentMove >= total) goToMove(0);
     document.getElementById('btn-play').textContent = '⏸ Pause';
     document.getElementById('btn-play').classList.add('active');
-    const speed = () => parseInt(document.getElementById('speed-slider').value);
+    // Invert: slider right = fast (low ms delay), slider left = slow (high ms delay)
+    // Invert: slider right = fast (low ms delay), slider left = slow (high ms delay, max 5s)
+    const speed = () => 5200 - parseInt(document.getElementById('speed-slider').value);
     playTimer = setInterval(() => {
       if (currentMove >= total) { stopPlay(); return; }
       goToMove(currentMove + 1);
@@ -583,7 +586,7 @@ const PIECE_SYMBOLS = { p:'♟', n:'♞', b:'♝', r:'♜', q:'♛' };
           goToMove(currentMove + 1);
         }, speed());
       }
-    }, { once: true });
+    });
   });
 
   // Keyboard navigation
