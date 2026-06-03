@@ -186,6 +186,74 @@
     }
     #speed-slider { width: 80px; accent-color: #c9a84c; }
 
+    /* ── Game selector ── */
+    .game-selector-wrap {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      background: #12122a; border: 1px solid #2a2040;
+      border-radius: 6px; margin-bottom: 4px;
+    }
+    .game-selector-wrap label { font-size: 0.76rem; color: #666; white-space: nowrap; }
+    #game-select {
+      background: #0f1117; border: 1px solid #3a3050;
+      color: #e8e8e8; border-radius: 5px;
+      padding: 5px 10px; font-size: 0.83rem;
+      cursor: pointer; flex: 1; max-width: 320px;
+    }
+    #game-select:focus { outline: none; border-color: #c9a84c; }
+    .game-nav-btn {
+      background: #1e1a30; border: 1px solid #3a3050;
+      color: #bbb; padding: 5px 11px;
+      border-radius: 5px; cursor: pointer; font-size: 0.83rem;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .game-nav-btn:hover  { background: #c9a84c; color: #000; border-color: #c9a84c; }
+    .game-nav-btn:disabled { opacity: 0.3; cursor: default; }
+    .game-nav-btn:disabled:hover { background: #1e1a30; color: #bbb; border-color: #3a3050; }
+
+    /* ── Narrative panel ── */
+    .narrative-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .narrative-intro {
+      background: #12122a;
+      border: 1px solid #2a2040;
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 0.82rem;
+      line-height: 1.7;
+      color: #999;
+    }
+    .narrative-intro strong { color: #c9a84c; }
+    .narrative-intro p { margin-top: 8px; }
+    .narrative {
+      background: #12122a;
+      border: 1px solid #2a2040;
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 0.82rem;
+      line-height: 1.65;
+      color: #aaa;
+    }
+    .narrative .nar-title {
+      font-size: 0.68rem; text-transform: uppercase;
+      letter-spacing: 0.1em; color: #c9a84c; margin-bottom: 10px;
+    }
+    .narrative .nar-opening {
+      color: #e8e8e8; font-style: italic; margin-bottom: 8px;
+      font-size: 0.88rem;
+    }
+    .narrative .nar-desc { margin-bottom: 10px; }
+    .narrative .nar-stats {
+      display: flex; gap: 20px; flex-wrap: wrap;
+      border-top: 1px solid #2a2040; padding-top: 10px; margin-top: 4px;
+    }
+    .nar-stat { display: flex; flex-direction: column; gap: 2px; }
+    .nar-stat .stat-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: #555; }
+    .nar-stat .stat-val   { font-size: 0.88rem; color: #c9a84c; font-weight: bold; }
+
     /* ── Right: side panel ── */
     .side-panel {
       display: flex; flex-direction: column; gap: 14px;
@@ -316,6 +384,13 @@
 
     <div id="board"></div>
 
+    <div class="game-selector-wrap">
+      <label>Game:</label>
+      <button class="game-nav-btn" id="btn-prev-game">&#8592;</button>
+      <select id="game-select"></select>
+      <button class="game-nav-btn" id="btn-next-game">&#8594;</button>
+    </div>
+
     <div class="status-bar">
       <span id="status-text">Ready</span>
       <span id="move-counter">Move 0 / 0</span>
@@ -332,6 +407,40 @@
         <input type="range" id="speed-slider" min="200" max="5000" value="2000" step="100">
         <span>Fast</span>
       </div>
+    </div>
+
+    <!-- ── Narrative panel ── -->
+    <div class="narrative-wrap">
+
+      <div class="narrative-intro">
+        <div class="nar-title">What Is This?</div>
+        <p>This is an <strong>A2A (agent-to-agent)</strong> demonstration. Data has been collected to represent the playing style from each player's past games. Rather than two people at the table, there are two computers. Each computer does its best to win the game. Thereafter, the prior results inform the next game.</p>
+      </div>
+
+      <div class="narrative">
+        <div class="nar-title">About This Game</div>
+        <div class="nar-opening" id="nar-opening">Detecting opening…</div>
+        <div class="nar-desc" id="nar-desc"></div>
+        <div class="nar-stats">
+          <div class="nar-stat">
+            <span class="stat-label">This Game</span>
+            <span class="stat-val" id="stat-game">#1</span>
+          </div>
+          <div class="nar-stat">
+            <span class="stat-label">Fischer Historical Games</span>
+            <span class="stat-val">60 studied &bull; top 20 selected</span>
+          </div>
+          <div class="nar-stat">
+            <span class="stat-label">Kasparov Historical Games</span>
+            <span class="stat-val">171 studied &bull; top 20 selected</span>
+          </div>
+          <div class="nar-stat">
+            <span class="stat-label">Match History Used</span>
+            <span class="stat-val" id="stat-history">0 prior games</span>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -410,7 +519,8 @@
 
 <!-- ── Main chess app ── -->
 <script>
-const PGN = `[Event "Fischer vs Kasparov A2A Demo — Game 1"]
+const GAMES = [
+  `[Event "Fischer vs Kasparov A2A Demo — Game 1"]
 [Site "?"]
 [Date "2026-05-31"]
 [Round "1"]
@@ -418,7 +528,9 @@ const PGN = `[Event "Fischer vs Kasparov A2A Demo — Game 1"]
 [Black "Kasparov (Claude)"]
 [Result "1/2-1/2"]
 
-1. e4 c5 2. Nf3 Nc6 3. Nc3 d6 4. d4 cxd4 5. Nxd4 Nf6 6. Bg5 d5 7. Nxd5 Nxd5 8. Bxe7 Qxe7 9. Bb5 Bd7 10. Nxc6 Bxc6 11. Qxd5 Qb4+ 12. Qd2 Qxe4+ 13. Qe3 Qxe3+ 14. fxe3 O-O-O 15. Bxc6 bxc6 16. O-O Rd2 17. Rxf7 Rxg2+ 18. Kh1 Rxh2+ 19. Kxh2 Bd6+ 20. Rf4 Bxf4+ 21. exf4 Rd8 22. f5 Rd2+ 23. Kg3 Rxc2 24. f6 gxf6 25. Rg1 Rxb2 26. Kh4 Rh2+ 27. Kg3 Rxa2 28. Ra1 Rxa1 29. Kf4 Ra4+ 30. Ke3 c5 31. Kd3 c4+ 32. Kc3 Ra3+ 33. Kb4 c3 34. Kxa3 c2 35. Kb2 c1=Q+ 36. Kxc1 Kc7 37. Kd2 Kd6 38. Ke3 Kd5 39. Kd3 Ke5 40. Ke3 Kf5 41. Kf3 Ke5 42. Ke3 f5 43. Kf3 f4 44. Kg4 Ke4 45. Kh3 f3 46. Kg3 f2 47. Kxf2 Kf4 48. Ke2 Kg5 49. Kf3 h5 50. Ke4 h4 51. Kf3 h3 52. Kg3 h2 53. Kxh2 a5 54. Kg3 a4 55. Kf2 a3 56. Ke3 a2 57. Kd2 a1=Q 58. Ke2 Qb2+ 59. Kf3 Qg2+ 60. Kxg2 1/2-1/2`;
+1. e4 c5 2. Nf3 Nc6 3. Nc3 d6 4. d4 cxd4 5. Nxd4 Nf6 6. Bg5 d5 7. Nxd5 Nxd5 8. Bxe7 Qxe7 9. Bb5 Bd7 10. Nxc6 Bxc6 11. Qxd5 Qb4+ 12. Qd2 Qxe4+ 13. Qe3 Qxe3+ 14. fxe3 O-O-O 15. Bxc6 bxc6 16. O-O Rd2 17. Rxf7 Rxg2+ 18. Kh1 Rxh2+ 19. Kxh2 Bd6+ 20. Rf4 Bxf4+ 21. exf4 Rd8 22. f5 Rd2+ 23. Kg3 Rxc2 24. f6 gxf6 25. Rg1 Rxb2 26. Kh4 Rh2+ 27. Kg3 Rxa2 28. Ra1 Rxa1 29. Kf4 Ra4+ 30. Ke3 c5 31. Kd3 c4+ 32. Kc3 Ra3+ 33. Kb4 c3 34. Kxa3 c2 35. Kb2 c1=Q+ 36. Kxc1 Kc7 37. Kd2 Kd6 38. Ke3 Kd5 39. Kd3 Ke5 40. Ke3 Kf5 41. Kf3 Ke5 42. Ke3 f5 43. Kf3 f4 44. Kg4 Ke4 45. Kh3 f3 46. Kg3 f2 47. Kxf2 Kf4 48. Ke2 Kg5 49. Kf3 h5 50. Ke4 h4 51. Kf3 h3 52. Kg3 h2 53. Kxh2 a5 54. Kg3 a4 55. Kf2 a3 56. Ke3 a2 57. Kd2 a1=Q 58. Ke2 Qb2+ 59. Kf3 Qg2+ 60. Kxg2 1/2-1/2`,
+  // ADD GAME 2 PGN HERE
+];
 
 function parseHeaders(pgn) {
   const h = {};
@@ -435,48 +547,122 @@ function parseMoves(pgn) {
 const PIECE_SYMBOLS = { p:'♟', n:'♞', b:'♝', r:'♜', q:'♛' };
 
 (function() {
-  const headers = parseHeaders(PGN);
-  const moves   = parseMoves(PGN);
-  const total   = moves.length;
+  let currentGameIdx = 0;
+  let moves = [], total = 0, currentMove = 0, playTimer = null;
+  let board = null, chess = new Chess();
 
-  document.getElementById('info-event').textContent = headers.Event || '—';
-  document.getElementById('info-date').textContent  = headers.Date  || '—';
-  document.getElementById('info-moves').textContent = total + ' half-moves';
+  // Populate game selector
+  const gameSelect = document.getElementById('game-select');
+  GAMES.forEach((pgn, i) => {
+    const h = parseHeaders(pgn);
+    const opt = document.createElement('option');
+    opt.value = i;
+    const result = h.Result || '*';
+    const date = h.Date || '';
+    opt.textContent = `Game ${i + 1}  —  ${result}  (${date})`;
+    gameSelect.appendChild(opt);
+  });
 
-  const result = headers.Result || '*';
-  let rClass = 'result-draw', rText = 'Draw';
-  if (result === '1-0')     { rClass = 'result-white'; rText = 'White wins'; }
-  if (result === '0-1')     { rClass = 'result-black'; rText = 'Black wins'; }
-  document.getElementById('info-result').innerHTML =
-    `<span class="result-badge ${rClass}">${result} &mdash; ${rText}</span>`;
-
-  // Build move list
-  const mlEl = document.getElementById('move-list');
-  for (let i = 0; i < moves.length; i += 2) {
-    const row = document.createElement('div');
-    row.className = 'move-row';
-    const num = document.createElement('span');
-    num.className = 'move-num';
-    num.textContent = (i/2+1) + '.';
-    const w = document.createElement('span');
-    w.className = 'move-san'; w.textContent = moves[i]; w.dataset.idx = i+1;
-    w.addEventListener('click', () => goToMove(+w.dataset.idx));
-    const b = document.createElement('span');
-    b.className = 'move-san';
-    if (moves[i+1]) {
-      b.textContent = moves[i+1]; b.dataset.idx = i+2;
-      b.addEventListener('click', () => goToMove(+b.dataset.idx));
-    }
-    row.append(num, w, b);
-    mlEl.appendChild(row);
+  function updateGameNavButtons() {
+    document.getElementById('btn-prev-game').disabled = currentGameIdx === 0;
+    document.getElementById('btn-next-game').disabled = currentGameIdx === GAMES.length - 1;
   }
 
-  let board = null, chess = new Chess(), currentMove = 0, playTimer = null;
+  function loadGame(idx) {
+    stopPlay();
+    currentGameIdx = idx;
+    gameSelect.value = idx;
+    updateGameNavButtons();
 
-  board = Chessboard('board', {
-    position: 'start',
-    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
-  });
+    const PGN = GAMES[idx];
+    const headers = parseHeaders(PGN);
+    moves = parseMoves(PGN);
+    total = moves.length;
+
+    // Update game info panel
+    document.getElementById('info-event').textContent = headers.Event || '—';
+    document.getElementById('info-date').textContent  = headers.Date  || '—';
+    document.getElementById('info-moves').textContent = total + ' half-moves';
+
+    const result = headers.Result || '*';
+    let rClass = 'result-draw', rText = 'Draw';
+    if (result === '1-0') { rClass = 'result-white'; rText = 'White wins'; }
+    if (result === '0-1') { rClass = 'result-black'; rText = 'Black wins'; }
+    document.getElementById('info-result').innerHTML =
+      `<span class="result-badge ${rClass}">${result} &mdash; ${rText}</span>`;
+
+    // Opening detection
+    const opening = detectOpening(moves);
+    document.getElementById('nar-opening').textContent = opening.name;
+    document.getElementById('nar-desc').textContent    = opening.desc;
+
+    // Game number stats
+    const gameNumMatch = (headers.Event || '').match(/Game\s+(\d+)/i);
+    const gameNum = gameNumMatch ? parseInt(gameNumMatch[1]) : idx + 1;
+    document.getElementById('stat-game').textContent = '#' + gameNum;
+    const priorGames = Math.max(0, gameNum - 1);
+    document.getElementById('stat-history').textContent =
+      priorGames === 0 ? 'None — first game' :
+      priorGames === 1 ? '1 prior game' :
+      priorGames + ' prior games';
+
+    // Rebuild move list
+    const mlEl = document.getElementById('move-list');
+    mlEl.innerHTML = '';
+    for (let i = 0; i < moves.length; i += 2) {
+      const row = document.createElement('div');
+      row.className = 'move-row';
+      const num = document.createElement('span');
+      num.className = 'move-num';
+      num.textContent = (i / 2 + 1) + '.';
+      const w = document.createElement('span');
+      w.className = 'move-san'; w.textContent = moves[i]; w.dataset.idx = i + 1;
+      w.addEventListener('click', () => goToMove(+w.dataset.idx));
+      const b = document.createElement('span');
+      b.className = 'move-san';
+      if (moves[i + 1]) {
+        b.textContent = moves[i + 1]; b.dataset.idx = i + 2;
+        b.addEventListener('click', () => goToMove(+b.dataset.idx));
+      }
+      row.append(num, w, b);
+      mlEl.appendChild(row);
+    }
+
+    // Init board if first load, else just reset position
+    chess = new Chess();
+    if (!board) {
+      board = Chessboard('board', {
+        position: 'start',
+        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+      });
+    }
+    goToMove(0);
+  }
+
+  gameSelect.addEventListener('change', () => loadGame(parseInt(gameSelect.value)));
+  document.getElementById('btn-prev-game').addEventListener('click', () => { if (currentGameIdx > 0) loadGame(currentGameIdx - 1); });
+  document.getElementById('btn-next-game').addEventListener('click', () => { if (currentGameIdx < GAMES.length - 1) loadGame(currentGameIdx + 1); });
+
+  const OPENINGS = [
+    { moves: ['e4','c5'],                         name: 'Sicilian Defense',          desc: 'Kasparov answers Fischer\'s 1.e4 with the Sicilian — the most combative reply to king\'s pawn, steering the game into sharp asymmetric territory where both sides fight for the initiative.' },
+    { moves: ['e4','e5','Nf3','Nc6','Bb5'],       name: 'Ruy López (Spanish Game)',  desc: 'Fischer\'s trademark opening as White. The Ruy López applies long-term pressure on Black\'s center from the very first moves — a weapon Fischer wielded with clinical precision throughout his career.' },
+    { moves: ['e4','e5','Nf3','Nc6','Bc4'],       name: 'Italian Game',              desc: 'An ancient, classical opening aiming for rapid development and central control. Fischer occasionally deployed it for its clear, logical structure.' },
+    { moves: ['e4','e5'],                          name: 'Open Game (1.e4 e5)',       desc: 'Both sides open symmetrically with king\'s pawns — the oldest and most direct chess battle, where the fight for the center begins immediately.' },
+    { moves: ['d4','Nf6','c4','g6'],              name: 'King\'s Indian Defense',    desc: 'Kasparov\'s signature weapon against 1.d4 — he allows White to build a big center then attacks it with ferocious kingside play. His results with this opening are legendary.' },
+    { moves: ['d4','d5','c4'],                    name: 'Queen\'s Gambit',           desc: 'White offers a wing pawn to seize the center. One of the oldest and most respected openings in chess, leading to rich strategic battles.' },
+    { moves: ['e4','e6'],                         name: 'French Defense',            desc: 'Black builds a solid pawn chain with 1…e6, aiming for a solid structure at the cost of slightly passive piece development.' },
+    { moves: ['e4','c6'],                         name: 'Caro-Kann Defense',         desc: 'A solid, reliable reply to 1.e4. Black establishes a firm foothold in the center with fewer weaknesses than most defenses.' },
+    { moves: ['Nf3','Nf6','c4'],                  name: 'English Opening',           desc: 'A flexible, hypermodern approach — White controls the center from a distance and delays committing pawns, keeping options open.' },
+    { moves: ['e4'],                              name: 'King\'s Pawn Opening',      desc: 'Fischer\'s preferred first move — he almost exclusively opened 1.e4 throughout his career, calling it "best by test."' },
+    { moves: ['d4'],                              name: 'Queen\'s Pawn Opening',     desc: 'A solid, strategic opening that leads to rich positional battles in the center of the board.' },
+  ];
+
+  function detectOpening(moveList) {
+    for (const o of OPENINGS) {
+      if (o.moves.every((m, i) => moveList[i] === m)) return o;
+    }
+    return { name: 'Irregular Opening', desc: 'The agents diverged from mainline theory early, choosing a path guided by their historical game study and prior match experience rather than classical opening principles.' };
+  }
 
   function computeCaptured(fen) {
     const full = { p:8, n:2, b:2, r:2, q:1 };
@@ -554,7 +740,7 @@ const PIECE_SYMBOLS = { p:'♟', n:'♞', b:'♝', r:'♜', q:'♛' };
       else if (chess.in_check()) s += ' — Check!';
       else if (chess.in_draw())  s += ' — Draw';
     }
-    if (currentMove === total) s += '  •  ' + result;
+    if (currentMove === total) s += '  •  ' + (parseHeaders(GAMES[currentGameIdx]).Result || '*');
     document.getElementById('status-text').textContent = s;
   }
 
@@ -597,7 +783,7 @@ const PIECE_SYMBOLS = { p:'♟', n:'♞', b:'♝', r:'♜', q:'♛' };
     if (e.key === 'End')        { stopPlay(); goToMove(total); }
   });
 
-  goToMove(0);
+  loadGame(0);
 })();
 </script>
 
